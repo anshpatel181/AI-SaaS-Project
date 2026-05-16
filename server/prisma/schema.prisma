@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model creations {
+  id         Int       @id @default(autoincrement())
+  user_id    String
+  prompt     String
+  content    String
+  type       String
+  publish    Boolean?  @default(false)
+  likes      String[]  @default([])
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([user_id])
+  @@index([publish])
+}
