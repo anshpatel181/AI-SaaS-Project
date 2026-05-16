@@ -2,11 +2,11 @@ import OpenAI from "openai";
 import { clerkClient } from "@clerk/express";
 import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
-import fs from "fs";
 import { PDFParse } from "pdf-parse";
 import { prisma } from "../config/prisma.js";
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit"
+import sharp from "sharp";
 
 const openai = new OpenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -223,6 +223,20 @@ export const removeImageBackground = async (req, res) => {
     }
 
     const image = req.file;
+
+    // Validate image dimensions
+    const metadata = await sharp(image.buffer).metadata();
+
+    const megapixels =
+      (metadata.width * metadata.height) / 1000000;
+
+    if (megapixels > 25) {
+      return res.json({
+        success: false,
+        message: `Image too large (${megapixels.toFixed(1)} MP). Please upload image below 25 MP.`,
+      });
+    }
+
     const plan = req.plan;
 
     if (plan !== "premium") {
@@ -232,12 +246,24 @@ export const removeImageBackground = async (req, res) => {
       });
     }
 
-    const { secure_url } = await cloudinary.uploader.upload(image.path, {
-      transformation: {
-        effect: "background_removal",
-        background_removal: "remove_the_background",
-      },
-    });
+    const resizedBuffer = await sharp(image.buffer).resize({
+      width: 3000,
+      height: 3000,
+      fit: "inside",
+      withoutEnlargement: true,
+    }).jpeg({ quality: 80 }).toBuffer();
+
+    const base64Image = resizedBuffer.toString("base64");
+
+    const { secure_url } = await cloudinary.uploader.upload(
+      `data:image/jpeg;base64,${base64Image}`,
+      {
+        transformation: {
+          effect: "background_removal",
+          background_removal: "remove_the_background",
+        },
+      }
+    );
 
     await prisma.creations.create({
       data: {
@@ -278,7 +304,7 @@ export const removeImageObject = async (req, res) => {
       });
     }
 
-    const uploadResult = await cloudinary.uploader.upload(image.path, {
+    const uploadResult = await cloudinary.uploader.upload(`data:${image.mimetype};base64,${image.buffer.toString("base64")}`, {
       resource_type: "image",
     });
 
@@ -334,8 +360,7 @@ export const resumeReview = async (req, res) => {
       });
     }
 
-    const dataBuffer = fs.readFileSync(resume.path);
-    const parser = new PDFParse({ data: dataBuffer });
+    const parser = new PDFParse({ data: resume.buffer });
     const pdfData = await parser.getText();
 
     const prompt = `Review the following resume and provide constructive feedback on its strengths, weaknesses, and areas for improvement. Resume Content:\n\n${pdfData.text}`;
@@ -348,22 +373,32 @@ export const resumeReview = async (req, res) => {
           content: prompt,
         },
       ],
+      stream: true,
       temperature: 0.7,
       max_tokens: 1000,
     });
 
-    const content = response.choices[0].message.content;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8'); //we are sending response as plain text
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    let fullContent = ""; 
+
+    for await (const chunk of response) {
+      const text = chunk.choices[0]?.delta?.content || "";
+      fullContent += text;
+      res.write(text);
+    }
 
     await prisma.creations.create({
       data: {
         user_id: userId,
         prompt: 'Review the uploaded resume',
-        content,
+        content: fullContent,
         type: 'resume-review'
       }
     })
 
-    return res.json({ success: true, content });
+    res.end()
   } catch (error) {
     console.log(error.message);
     return res.json({ success: false, message: error.message });

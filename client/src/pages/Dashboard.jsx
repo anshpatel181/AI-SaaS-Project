@@ -21,6 +21,7 @@ export const Dashboard = () => {
       setIsLoading(true)
 
       const token = await getToken();
+      
       const { data } = await axios.get(BASE_URL + '/api/user/get-user-creations', {
         headers: {
           Authorization: `Bearer ${token}`

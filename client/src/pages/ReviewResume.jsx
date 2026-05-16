@@ -1,10 +1,11 @@
 import { useAuth } from '@clerk/clerk-react';
 import { FileText, Sparkles } from 'lucide-react';
 import { useState } from 'react'
-import axios from "axios"
 import toast from 'react-hot-toast';
 import { ButtonLoader } from '../components/ButtonLoader';
 import MarkDown from "react-markdown"
+import { useRef } from 'react';
+import { useEffect } from 'react';
 
 export const ReviewResume = () => {
   const [file, setFile] = useState("")
@@ -12,6 +13,16 @@ export const ReviewResume = () => {
   const [content, setContent] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { getToken } = useAuth()
+  const abortControllerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if(abortControllerRef.current) {
+        console.log("User left the page! Cancelling the AI stream...");
+        abortControllerRef.current.abort();
+      }
+    }
+  }, []);
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -20,26 +31,52 @@ export const ReviewResume = () => {
       setIsLoading(true)
       const token = await getToken();
 
+      abortControllerRef.current = new AbortController()
+        
       const formData = new FormData();
       formData.append('resume', file)
 
-      const { data } = await axios.post(BASE_URL + '/api/ai/review-resume', formData, {
+      const response = await fetch(BASE_URL + '/api/ai/review-resume', {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${token}`
-        }
+        },
+        body: formData,
+        signal: abortControllerRef.current.signal
       })
 
-      if (data.success) {
-        setContent(data.content)
-        setIsLoading(false)
-        setFile("")
-        toast.success("Resume Reviewed successfully")
-      } else {
-        toast.error(data.message)
+      const contentType = response.headers.get("content-type")
+
+      if(contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+
+        if(!data.success) {
+          throw new Error(data.message);
+        }
       }
+
+      if(!response.ok) {
+        throw new Error("Failed to generate response, please try again.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8")
+
+      while(true) {
+        const {value, done} = await reader.read();
+
+        if(done) break;
+
+        const chunk = decoder.decode(value, {stream: true})
+        setContent(prev => prev + chunk)
+      }
+
+      setIsLoading(false)
+      toast.success("Resume Reviewed Successfully")
     } catch (error) {
-      toast.error(error)
+      toast.error(error || "Something went wrong")
       console.log(error);
+      setIsLoading(false)
     } finally {
       setIsLoading(false)
     }
@@ -66,7 +103,7 @@ export const ReviewResume = () => {
           Review Resume</button>
       </form>
 
-      <div className='w-full max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96 max-h-150'>
+      <div className='w-full max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96 max-h-400'>
         <div className='flex items-center gap-3'>
           <FileText className='w-5 h-5 text-[#00DA83]' />
           <h1 className='text-xl font-semibold'>Analysis Results</h1>

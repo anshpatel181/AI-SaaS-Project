@@ -15,28 +15,46 @@ export const RemoveBackground = () => {
   const onSubmitHandler = async (e) => {
     e.preventDefault();
 
-    try {
-      setIsLoading(true)
-      const token = await getToken();
-      const formData = new FormData();
-      formData.append('image', file)
+    if (!file) {
+      toast.error("Please select an image")
+      return;
+    }
 
-      const { data } = await axios.post(BASE_URL + '/api/ai/remove-image-background', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+    const img = new Image()
+    img.src = URL.createObjectURL(file)
 
-      if (data.success) {
-        setImageUrl(data.content)
-        setFile("")
-        setIsLoading(false)
-        toast.success("Background removed Successfully")
+    img.onload = async () => {
+
+      const megapixels = (img.width * img.height) / 1000000;
+
+      if (megapixels > 25) {
+        toast.error(`Image too large (${megapixels.toFixed(1)} MP). Please upload an image below 25 MP.`);
+        return;
       }
-    } catch (error) {
-      toast.error(error)
-    } finally {
-      setIsLoading(false)
+
+      try {
+        setIsLoading(true)
+        const token = await getToken();
+        const formData = new FormData();
+        formData.append('image', file)
+
+        const { data } = await axios.post(BASE_URL + '/api/ai/remove-image-background', formData, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+
+        if (data.success) {
+          setImageUrl(data.content)
+          setFile("")
+          setIsLoading(false)
+          toast.success("Background removed Successfully")
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || error.message)
+      } finally {
+        setIsLoading(false)
+      }
     }
   }
 

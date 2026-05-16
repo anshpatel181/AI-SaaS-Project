@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Edit, Sparkles } from "lucide-react"
 import toast from 'react-hot-toast'
 import { useAuth } from '@clerk/clerk-react'
-import axios from "axios"
 import { ButtonLoader } from '../components/ButtonLoader'
 import Markdown from 'react-markdown'
+import { useRef } from 'react'
+import { useEffect } from 'react'
 
 export const WriteArticle = () => {
 
@@ -20,15 +21,27 @@ export const WriteArticle = () => {
   const { getToken } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [content, setContent] = useState(``)
+  const abortControllerRef = useRef(null)                                                 
+
+  useEffect(() => {
+    return () => {
+      if(abortControllerRef.current) {
+        console.log("User left the page! Cancelling the AI stream...");
+        abortControllerRef.current.abort();
+      }
+    }
+  }, [])
 
   const onSubmitHandler = async (e) => {
     e.preventDefault()
 
     try {
       setIsLoading(true)
-      setContent("") // Clear old content before starting
+      setContent("")  
 
       const token = await getToken();
+
+      abortControllerRef.current = new AbortController();
 
       // Use standard fetch instead of axios to read the stream
       const response = await fetch(BASE_URL + '/api/ai/generate-article', {
@@ -40,24 +53,35 @@ export const WriteArticle = () => {
         body: JSON.stringify({
           prompt: `Write an article about ${input} in ${selectedLength.text}`,
           length: selectedLength.length,
-        })
+        }),
+        signal: abortControllerRef.current.signal
       });
+
+      const contentType = response.headers.get("content-type")
+
+      if(contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+
+        if(!data.success) {
+          throw new Error(data.message);
+        }
+      }
 
       if (!response.ok) {
         throw new Error("Failed to generate article or limit reached.");
       }
 
       // Read the stream chunk-by-chunk
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const reader = response.body.getReader(); // this creates the stream reader for reading incoming chunks
+      const decoder = new TextDecoder("utf-8"); //convert binary chunks into readable text
 
-      while (true) {
-        const { value, done } = await reader.read();
+      while (true) { //continuously read incoming AI chunks
+        const { value, done } = await reader.read(); // this reads one chunk(binary) from stream and stores it in value 
 
         if (done) break; // Streaming is finished
 
         // Decode the raw text and append it to our state so it types out live!
-        const chunk = decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true }); // converts binary into text
         setContent(prev => prev + chunk);
       }
 

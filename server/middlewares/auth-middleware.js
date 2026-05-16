@@ -19,7 +19,7 @@ export const auth = async (req, res, next) => {
     const user = await clerkClient.users.getUser(userId);
 
     // 3. Read plan from publicMetadata
-    const plan = user.privateMetadata?.plan || "free";
+    const plan = user.publicMetadata?.plan || "free";    
 
     // 4. Read free usage count
     const free_usage = user.privateMetadata?.free_usage || 0;
