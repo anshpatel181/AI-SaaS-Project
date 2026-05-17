@@ -27,7 +27,7 @@ export const Footer = () => {
                             <p>The latest news, articles, and resources, sent to your inbox weekly.</p>
                             <div className="flex items-center gap-2 pt-4">
                                 <input className="border border-gray-500/30 placeholder-gray-500 focus:ring-2 ring-indigo-600 outline-none w-full max-w-64 h-9 rounded px-2" type="email" placeholder="Enter your email" />
-                                <button className="bg-primary w-25 h-9 text-white rounded">Subscribe</button>
+                                <button className="bg-primary text-[11px] w-20 h-9 text-white rounded px-2 py-1">Subscribe</button>
                             </div>
                         </div>
                     </div>

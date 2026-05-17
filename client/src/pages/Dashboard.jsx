@@ -128,8 +128,8 @@ export const Dashboard = () => {
     </div>
   ) : (
     <div className='h-full overflow-y-scroll p-6'>
-      <div className='flex justify-start gap-4 flex-wrap'>
-        <div className='flex justify-between items-center w-72 p-4 px-6 bg-white rounded-xl border border-gray-200'>
+      <div className='flex justify-start gap-4 flex-wrap w-full'>
+        <div className='flex justify-between items-center w-full sm:w-72 p-4 px-6 bg-white rounded-xl border border-gray-200'>
           <div className='text-slate-600'>
             <p className='text-sm'>Total Creations</p>
             <h2 className='text-xl font-semibold'>{creations.length}</h2>
@@ -139,7 +139,7 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className='flex justify-between items-center w-80 p-4 px-6 bg-white rounded-xl border border-gray-200'>
+        <div className='flex justify-between items-center w-full sm:w-80 p-4 px-6 bg-white rounded-xl border border-gray-200'>
           <div className='text-slate-600'>
             <p className='text-sm'>Active Plan</p>
             <h2 className='text-xl font-semibold'>

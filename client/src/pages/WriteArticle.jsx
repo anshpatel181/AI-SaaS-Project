@@ -96,8 +96,8 @@ export const WriteArticle = () => {
   }
 
   return (
-    <div className='h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700'>
-      <form onSubmit={onSubmitHandler} className='w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200'>
+    <div className='h-full overflow-y-scroll p-4 sm:p-6 flex items-start flex-wrap gap-4 text-slate-700'>
+      <form onSubmit={onSubmitHandler} className='w-full sm:max-w-lg p-4 bg-white rounded-lg border border-gray-200'>
         <div className='flex items-center gap-3'>
           <Sparkles className='w-6 text-[#4A7AFF]' />
           <h1 className='text-xl font-semibold'>Article Configuration</h1>
@@ -122,7 +122,7 @@ export const WriteArticle = () => {
           {isLoading ? "Generating..." : "Generate Article"}</button>
       </form>
 
-      <div className='w-full max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96 max-h-150'>
+      <div className='w-full sm:max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96 max-h-[600px]'>
         <div className='flex items-center gap-3'>
           <Edit className='w-5 h-5 text-[#4A7AFF]' />
           <h1 className='text-xl font-semibold'>Generated Article</h1>
