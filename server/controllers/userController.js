@@ -3,11 +3,27 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { clerkClient } from "@clerk/express";
 import { Redis } from '@upstash/redis';
+import { Webhook } from "svix"
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
+
+export const addPlanToClerk = async (req, res) => {
+    try {
+        const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+        const event = wh.verify(req.body, req.headers);
+        if (event.type === 'user.created') {
+            await clerkClient.users.updateUserMetadata(event.data.id, {
+                publicMetadata: { plan: 'free' }
+            });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+}
 
 export const getUserCreations = async (req, res) => {
     try {
@@ -15,12 +31,12 @@ export const getUserCreations = async (req, res) => {
 
         // const creations = await sql`SELECT * FROM creations where user_id = ${userId} order by created_at DESC`
         const creations = await prisma.creations.findMany({
-            where: {user_id: userId},
-            orderBy: {created_at: 'desc'}
+            where: { user_id: userId },
+            orderBy: { created_at: 'desc' }
         })
-        res.json({success: true, creations})
+        res.json({ success: true, creations })
     } catch (error) {
-        res.json({success: false, message: error.message})
+        res.json({ success: false, message: error.message })
     }
 }
 
@@ -59,45 +75,45 @@ export const getPublishedCreations = async (req, res) => {
 export const toggleLikeCreation = async (req, res) => {
     try {
 
-        const userId = req.userId        
-        const {id} = req.body
+        const userId = req.userId
+        const { id } = req.body
 
         // const [creation] = await sql`SELECT * from creations where id = ${id}`
         const creation = await prisma.creations.findUnique({
-            where: {id},
+            where: { id },
         })
-        
-        if(!creation) {
-            return res.json({success: false, message: "Creation not found"})
+
+        if (!creation) {
+            return res.json({ success: false, message: "Creation not found" })
         }
 
         let currentLikes = creation.likes || [];
-        
-        if(currentLikes.includes(userId)) { 
+
+        if (currentLikes.includes(userId)) {
             currentLikes = currentLikes.filter((cur_id) => cur_id !== userId)
-            
+
             // await sql`update creations set likes = ${currentLikes} where id = ${id}`
             await prisma.creations.update({
-                where: {id},
-                data: {likes: currentLikes}
+                where: { id },
+                data: { likes: currentLikes }
             })
 
             await redis.del("published_creations_feed")
-            return res.json({success: true, message: "Creation Unliked"})
+            return res.json({ success: true, message: "Creation Unliked" })
         }
 
-        currentLikes.push(`${userId}`)        
+        currentLikes.push(`${userId}`)
         // await sql`update creations set likes = ${currentLikes} where id = ${id}`
         await prisma.creations.update({
-            where: {id},
-            data: {likes: currentLikes}
+            where: { id },
+            data: { likes: currentLikes }
         })
 
         await redis.del("published_creations_feed")
 
-        res.json({success: true, message: "Creation Liked"})
+        res.json({ success: true, message: "Creation Liked" })
     } catch (error) {
-        res.json({success: false, message: error.message})
+        res.json({ success: false, message: error.message })
     }
 }
 
@@ -110,14 +126,14 @@ export const createRazorpayOrder = async (req, res) => {
         });
 
         //defines payment order details
-        const options = { 
+        const options = {
             amount: 99900,  // Amount in paisa (99900 paisa = ₹999)
             currency: "INR",
             receipt: `receipt_${req.userId}`,  //creates unique receipt identifier which is useful for tracking payments, debugging, invoices
         };
 
         //create order in razorpay which means sends request to razorpay server and it creates payment order 
-        const order = await instance.orders.create(options); 
+        const order = await instance.orders.create(options);
 
         res.json({ success: true, order }); //send order to frontend to open razorpay checkout popup
     } catch (error) {
@@ -130,8 +146,8 @@ export const createRazorpayOrder = async (req, res) => {
 export const verifyRazorpayPayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-        const userId = req.userId; 
-                
+        const userId = req.userId;
+
         // Create the expected signature using your secret key
         const body = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSignature = crypto
@@ -141,7 +157,7 @@ export const verifyRazorpayPayment = async (req, res) => {
 
         // Check if the signature sent by Razorpay matches our expected one
         const isAuthentic = expectedSignature === razorpay_signature;
-        
+
         if (isAuthentic) {
             // Payment is legit! Upgrade the user to premium in Clerk
             await clerkClient.users.updateUserMetadata(userId, {
