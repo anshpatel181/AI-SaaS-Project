@@ -14,7 +14,9 @@ await connectCloudinary();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet())
-app.use(cors());
+app.use(cors({
+    origin: "https://ai-saa-s-project-nine.vercel.app"
+}));
 app.use(express.json())
 app.use(clerkMiddleware())
 
