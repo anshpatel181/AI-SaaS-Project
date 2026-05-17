@@ -17,6 +17,8 @@ app.use(helmet())
 app.use(cors({
     origin: "https://ai-saa-s-project-nine.vercel.app"
 }));
+
+app.use('/api/user/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json())
 app.use(clerkMiddleware())
 
