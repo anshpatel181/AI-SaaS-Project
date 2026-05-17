@@ -5,6 +5,7 @@ import { clerkMiddleware } from '@clerk/express'
 import aiRouter from "./routes/aiRoutes.js";
 import connectCloudinary from "./config/cloudinary.js";
 import userRouter from "./routes/userRoutes.js";
+import helmet from "helmet"
 
 const app = express();
 
@@ -12,6 +13,7 @@ await connectCloudinary();
 
 const PORT = process.env.PORT || 3000;
 
+app.use(helmet())
 app.use(cors());
 app.use(express.json())
 app.use(clerkMiddleware())
